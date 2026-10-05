@@ -1,0 +1,143 @@
+/* Set like a printed physics text (after The Feynman Lectures on Physics): one Times-style
+   serif throughout, justified paragraphs, numbered sections and "Fig. N." captions.
+   Figures sit unframed on the page, as in a printed text. Only the phenomenon boxes carry the
+   paper's frame (black!78, 0.7pt, 5pt arc). Plots use boxed axes, the tab10 method colors and
+   the paper's region shading. Every figure is the width of the text column. */
+:root {
+  color-scheme: light;
+  --bg: #ffffff; --ink: #1b1b1a; --ink-2: #4a4945; --ink-3: #7d7b74;
+  --rule: #d9d8d2; --frame: #383838; --hair: #8c8c8c; --wash: #f6f6f3;
+  --link: #1f5f99;
+  --serif: "STIX Two Text", "Times New Roman", Times, serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --P: #e6eefc; --Q: #ededed;
+  --poly: #1f77b4; --rff: #d62728; --gp: #9467bd; --mlp: #ff7f0e;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); scroll-behavior: smooth; }
+body { font: 17px/1.6 var(--serif); color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
+main { max-width: 784px; margin: 0 auto; padding: 52px 24px 48px; counter-reset: sec fig; }
+p { margin-bottom: 1em; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+a { color: var(--link); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--link) 30%, transparent); }
+a:hover { border-bottom-color: var(--link); }
+sub, sup { line-height: 0; }
+
+/* ---- masthead ---- */
+.masthead { text-align: center; margin-bottom: 30px; }
+.masthead p { text-align: center; }
+h1 { font-weight: 700; font-size: 2.05rem; line-height: 1.2; text-wrap: balance; max-width: 22em; margin: 0 auto; }
+.authors { font-size: 1.12rem; margin: 16px 0 0; }
+.yale { display: block; height: 20px; width: auto; margin: 12px auto 8px; }
+.venue, .links { font-size: 1.05rem; color: var(--ink-2); margin: 2px 0 0; }
+.links { margin-top: 10px; }
+.intro { margin: 0 0 26px; }
+.intro p:last-child { margin-bottom: 0; }
+.epigraph { margin: 0 0 22px; padding: 0 2.5em; }
+.epigraph p { font-style: italic; text-align: left; margin-bottom: .3em; }
+.epigraph footer { text-align: right; font-size: .9rem; color: var(--ink-2); }
+.epigraph cite { font-style: italic; }
+
+/* ---- sections, numbered as in a printed text ---- */
+h2 { font-weight: 700; font-size: 1.32rem; line-height: 1.3; text-wrap: balance; margin: 52px 0 14px; }
+h2.num::before { counter-increment: sec; content: counter(sec); display: inline-block; min-width: 1.6em; }
+h2 em { font-style: italic; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+
+/* ---- figures: one frame style, the width of the text column ---- */
+.box { margin: 34px 0 36px; }
+figure.box { counter-increment: fig; }
+figcaption { font-size: .9rem; line-height: 1.5; color: var(--ink); margin-top: 10px; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+figcaption::before { content: "Fig. " counter(fig) ". "; font-weight: 700; }
+img.zoomable { width: 100%; height: auto; display: block; cursor: zoom-in; }
+img.zoomable.inset { width: 80%; margin: 0 auto; }
+.phen { border: 1px solid var(--frame); border-radius: 5px; padding: 10px 16px 12px; background: var(--bg); margin: 24px 0 8px; }
+.phen h3 { font-weight: 700; font-size: 1rem; line-height: 1.3; padding-bottom: 7px; margin-bottom: 8px; border-bottom: 0.5px solid var(--hair); }
+.phen p { font-size: .97rem; line-height: 1.55; margin: 0; }
+p.display { text-align: center; margin: .2em 0 1em; font-size: 1.06rem; }
+
+/* ---- plots ---- */
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: var(--serif); }
+.pair { display: grid; gap: 14px; align-items: start; }
+.hero-pair { grid-template-columns: 44fr 56fr; }
+.legend-hit { cursor: pointer; }
+#hero-op { cursor: ew-resize; }
+.cov-pair, .scale-pair, .two-pair { grid-template-columns: 1fr 1fr; }
+.ex-pair { grid-template-columns: 64fr 36fr; align-items: center; }
+.ex-pair .sys-grid { margin-top: 0; }
+.readout-line.cov-out { text-align: center; margin-top: 2px; }
+#toy-strip { margin: 2px 0 8px; }
+#toy-strip .pband { cursor: grab; }
+#toy-strip .pband:active { cursor: grabbing; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-top: 10px; font-size: .95rem; color: var(--ink-2); }
+.controls.top { margin: 0 0 6px; }
+.controls label { display: inline-flex; align-items: center; gap: 12px; }
+.controls label.grow { flex: 1 1 240px; }
+.controls input[type="range"] { flex: 1; min-width: 120px; }
+.readout, .readout-line { font-size: .95rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.readout b, .readout-line b { color: var(--ink); font-weight: 600; }
+.readout-line { margin: 6px 0 0; text-align: left; }
+input[type="range"] { width: 100%; accent-color: #555; margin: 0; cursor: pointer; }
+.plain-btn { font: inherit; font-size: .92rem; color: var(--ink); background: var(--bg); border: 1px solid var(--frame); border-radius: 4px; padding: 1px 11px; cursor: pointer; }
+.plain-btn:hover { background: var(--wash); }
+.seg { display: inline-flex; border: 1px solid var(--frame); border-radius: 4px; overflow: hidden; margin-left: 8px; vertical-align: middle; }
+.seg button { font: inherit; font-size: .92rem; background: var(--bg); color: var(--ink); border: 0; padding: 0 9px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--frame); color: #fff; }
+.plain-btn:focus-visible, .seg button:focus-visible, .tab:focus-visible, input[type="range"]:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+/* ---- ferromagnet ---- */
+.ferro-row { display: grid; grid-template-columns: 170px 1fr 1fr; gap: 16px; align-items: center; }
+#lattice { width: 170px; height: 170px; image-rendering: pixelated; border: 1px solid #000; }
+
+/* ---- system explorer ---- */
+.tabs { display: flex; flex-wrap: nowrap; gap: 0 20px; margin-bottom: 12px; border-bottom: 1px solid var(--rule); overflow-x: auto; scrollbar-width: none; }
+.tab { font: inherit; font-size: .95rem; color: var(--ink-2); background: none; border: 0; white-space: nowrap; border-bottom: 2px solid transparent; padding: 3px 0 5px; margin-bottom: -1px; cursor: pointer; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+.sys-desc { font-size: .93rem; line-height: 1.55; color: var(--ink-2); margin: 0 0 12px; min-height: 3em; }
+.sys-desc b { color: var(--ink); font-weight: 600; }
+.nw { white-space: nowrap; }
+.sys-grid { width: 100%; height: auto; display: block; cursor: zoom-in; margin-top: 12px; }
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 15px; font-size: .85rem; color: var(--ink); margin-top: 8px; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { display: inline-block; width: 18px; border-top: 2px solid; }
+.legend .sw.area { height: 11px; border: 0; }
+.ex-src { font-size: .88rem; color: var(--ink-2); margin: 2px 0 0; text-align: center; }
+.ex-note { font-size: .93rem; line-height: 1.55; margin: 10px 0 0; }
+
+/* ---- outline in the left margin, shown when there is room beside the text ---- */
+.toc { display: none; position: fixed; top: 96px; left: calc(50% - 392px - 236px); width: 204px; font-size: .86rem; line-height: 1.4; }
+.toc .toc-title { text-align: left; font-variant: small-caps; letter-spacing: .06em; color: var(--ink-3); margin: 0 0 8px; }
+.toc ol { list-style: none; border-left: 1px solid var(--rule); }
+.toc a { display: grid; grid-template-columns: 1.3em 1fr; text-wrap: balance; padding: 3px 0 3px 12px; margin-left: -1px; border: 0; border-left: 2px solid transparent; color: var(--ink-3); }
+.toc a:hover { color: var(--ink); }
+.toc a.active { color: var(--ink); border-left-color: var(--ink); }
+section, .masthead { scroll-margin-top: 28px; }
+@media (min-width: 1270px) { .toc { display: block; } }
+
+/* ---- lightbox ---- */
+.lightbox { position: fixed; inset: 0; background: rgba(255,255,255,.97); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50; cursor: zoom-out; }
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 100%; max-height: 100%; }
+
+/* ---- citation and references ---- */
+.cite { position: relative; }
+.cite .plain-btn { position: absolute; top: 10px; right: 10px; font-size: .85rem; padding: 0 10px; }
+pre { font-family: var(--mono); font-size: .7rem; line-height: 1.55; background: var(--wash); border: 1px solid var(--rule); border-radius: 5px; padding: 14px 16px; overflow-x: auto; }
+ul.refs { list-style: none; }
+ul.refs li { font-size: .88rem; line-height: 1.5; color: var(--ink-2); margin-bottom: 8px; padding-left: 18px; text-indent: -18px; }
+
+@media (max-width: 680px) {
+  body { font-size: 16px; }
+  main { padding-top: 34px; }
+  h1 { font-size: 1.6rem; }
+  p, figcaption { text-align: left; }
+  .box { padding: 12px 10px 10px; }
+  .hero-pair, .cov-pair, .scale-pair, .two-pair, .ex-pair { grid-template-columns: 1fr; }
+  .ferro-row { grid-template-columns: 1fr 1fr; }
+  #lattice { grid-column: 1 / -1; justify-self: center; }
+  img.zoomable.inset { width: 100%; }
+  #sys-bars { max-width: 300px; margin: 0 auto; }
+}

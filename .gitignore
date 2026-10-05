@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Generated artifacts
+results/
+logs/
+
+# Generated datasets
+*.npz
+
+# Local working files
+CLAUDE.md
+.claude/
+.scratch/
+writing/
+
+# Cruft
+__MACOSX/
+.DS_Store
+texput.log
