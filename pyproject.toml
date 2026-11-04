@@ -1,0 +1,19 @@
+[project]
+name = "extrapolation"
+version = "1.0.0"
+description = "Bounds on extrapolation across phase transitions with generalized regression"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Jeffrey Wei" },
+    { name = "Manolis Zampetakis" },
+    { name = "John Sous" },
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "scikit-learn>=1.5",
+    "matplotlib>=3.8",
+    "torch>=2.4",
+]

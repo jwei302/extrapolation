@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extrapolation Across Phase Transitions</title>
+<meta name="description" content="Can a model trained on one phase predict the other? We compare regression methods across five phase transitions and derive theoretical upper bounds on extrapolation error for finite-feature models.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Extrapolation across Phase Transitions with Polynomial and Kernel Regression: Error Bounds and Power-Law Scaling">
+<meta property="og:description" content="Can a model trained on one phase predict the other? Explore our experiments across five phase transitions and theoretical upper bounds on extrapolation error.">
+<meta property="og:image" content="https://jwei302.github.io/extrapolation/figs/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="heisenberg_models.js" defer></script>
+<script src="gevp.js" defer></script>
+<script src="paper_figs.js" defer></script>
+<script src="transitions.js" defer></script>
+<script src="site.js" defer></script>
+</head>
+<body>
+<nav class="toc" aria-label="Outline">
+  <p class="toc-title">Outline</p>
+  <ol>
+    <li><a href="#top"><span></span>Overview</a></li>
+    <li><a href="#problem"><span>1</span>Extrapolating across phase transitions</a></li>
+    <li><a href="#bound"><span>2</span>How can we bound the error?</a></li>
+    <li><a href="#powerlaw"><span>3</span>How does extrapolation scale with distance?</a></li>
+    <li><a href="#conclusions"><span>4</span>Conclusions</a></li>
+    <li><a href="#citation"><span></span>Citation</a></li>
+    <li><a href="#references"><span></span>References</a></li>
+  </ol>
+</nav>
+<main>
+
+  <header class="masthead" id="top">
+    <h1>Extrapolation across Phase Transitions with Polynomial and Kernel Regression:<br>Error Bounds and Power-Law Scaling</h1>
+    <p class="authors"><a href="https://jwei302.github.io">Jeffrey Wei</a>, <a href="https://mzampet.com">Manolis Zampetakis</a>, and <a href="https://sous.yale.edu/profile/john-sous">John Sous</a></p>
+    <img class="yale" src="figs/yale.svg" alt="Yale University" width="46" height="20">
+    <p class="venue">NeurIPS 2026</p>
+    <p class="venue">Also presented at the ICML 2026 <a href="https://ai4physics-workshop.github.io/">AI4Physics Workshop</a></p>
+    <p class="links">[<a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Paper</a>] [<a href="https://github.com/jwei302/extrapolation">Code</a>]</p>
+  </header>
+
+  <div class="intro">
+    <blockquote class="epigraph">
+      <p>&ldquo;One of the ways of stopping science would be only to do experiments in the region where you know the law.&rdquo;</p>
+      <footer>&mdash; Richard P. Feynman, <cite>The Character of Physical Law</cite> (1965)</footer>
+    </blockquote>
+    <p>Theoretical physics often requires answering questions about regimes where data is limited or inaccessible. Phase transitions provide a canonical benchmark for extrapolation because a model trained in one phase must predict both where the transition occurs and the qualitatively different behavior that emerges beyond it. In this paper, we ask the following questions:</p>
+    <ol class="research-questions question-list" role="list">
+      <li>Can a model trained on one phase predict an unobserved&nbsp;one?</li>
+      <li>If so, which classes of models extrapolate&nbsp;successfully?</li>
+      <li>Can we upper-bound the extrapolation&nbsp;error?</li>
+      <li>How does extrapolation scale with distance?</li>
+    </ol>
+    <p>Across five phase transitions, we compare polynomial regression, random Fourier features (RFF), Gaussian processes (GP), and a neural network, the multilayer perceptron (MLP).</p>
+    <p class="tldr"><strong>TLDR:</strong> Polynomial and kernel regression learn from one phase to predict another, while the tested neural networks miss the transition. Further, we develop sample-free bound that predicts error amplification for polynomial and RFF models to power-law growth as a function of distance to the transition.</p>
+  </div>
+
+  <figure class="box" id="hero">
+    <div class="pair hero-pair">
+      <svg id="hero-slice" class="plot" viewBox="0 0 440 380" role="img" aria-label="True and predicted free energy against magnetization at the chosen temperature"></svg>
+      <svg id="hero-op" class="plot" viewBox="0 0 560 380" role="img" aria-label="True and predicted magnetization against temperature. Drag to change the temperature."></svg>
+    </div>
+    <div class="legend" aria-label="Region colors">
+      <span><b class="sw area" style="background:var(--P)" aria-hidden="true"></b>Training <i>P</i></span>
+      <span><b class="sw area" style="background:var(--Q)" aria-hidden="true"></b>Extrapolation <i>Q</i></span>
+    </div>
+    <div class="controls">
+      <label class="grow"><span>Temperature <i>T</i></span><input id="hero-t" type="range" min="1" max="3" step="0.005" value="2.9"></label>
+      <span class="readout"><i>T</i> = <b id="hero-tval">2.90</b>, <span id="hero-where">in <i>P</i></span></span>
+      <button class="plain-btn" id="hero-play" type="button">Replay</button>
+    </div>
+    <figcaption> We depict the Landau-Ginsburg free energy Heisenberg model. All regressors are trained on the Landau free energy above the transition temperature <i>T</i><sub>c</sub>. Move the slider below it to compare the predicted free energy (left) and magnetization (right). In this example, polynomial, RFF, and GP regression recover the two minima and the magnetization curve, while the MLP does not.</figcaption>
+  </figure>
+
+  <section id="problem">
+    <h2 class="num">Extrapolating across phase transitions</h2>
+    <p>Phase transitions are a standard example of emergence, where a gradual change in conditions produces a sharp change in collective behavior through local interactions among microscopic components. In the continuous transitions studied here, the order parameter emerges continuously from zero, while its derivatives or associated response functions become singular at the critical point. Their importance spans the behavior of matter in the early universe, the properties of magnets and superconductors, and phase structure in learning theory.</p>
+
+    <div class="transition-explorer" id="transitions">
+
+    <figure class="box" id="ferro">
+      <div class="tabs" role="tablist" aria-label="Phase transitions"></div>
+      <div class="ferro-row">
+        <canvas id="lattice" width="100" height="100" aria-label="A lattice of spins at the chosen temperature"></canvas>
+        <svg id="landscape" class="plot" viewBox="0 0 320 290" aria-label="The observable at the chosen parameter"></svg>
+        <svg id="opcurve" class="plot" viewBox="0 0 320 290" aria-label="The derived quantity against the control parameter"></svg>
+      </div>
+      <div class="legend" aria-label="Region colors">
+        <span><b class="sw area" style="background:var(--P)" aria-hidden="true"></b>Training <i>P</i></span>
+        <span><b class="sw area" style="background:var(--Q)" aria-hidden="true"></b>Extrapolation <i>Q</i></span>
+      </div>
+      <div class="controls">
+        <label class="grow"><span id="ferro-param">Temperature <i>T</i></span><input id="temp" type="range" min="1.0" max="3.0" step="0.005" value="3.0"></label>
+        <span class="readout" id="ferro-readout"><i>T</i> = <b>3.00</b>, |<i>m</i>| = <b>0.00</b></span>
+        <button class="plain-btn" id="cool" type="button">Cool through <i>T</i><sub>c</sub></button>
+      </div>
+      <figcaption><span id="ferro-cap">The ferromagnetic Heisenberg model describes interacting magnetic spins, represented here by an analytical Landau&ndash;Ginzburg free energy. Above <i>T</i><sub>c</sub>, the system has zero spontaneous magnetization and a single free-energy minimum. Below <i>T</i><sub>c</sub>, magnetic order emerges and the free energy develops two symmetric minima at nonzero magnetization.</span></figcaption>
+    </figure>
+    </div>
+
+    <p id="systems">We compare polynomial regression, RFFs, GPs, and an MLP trained on observations from only one phase of each system. We evaluate their predictions in the unobserved phase and use the derived quantities to determine whether they recover the critical point.<sup class="note-ref"><a href="#note-1" id="note-ref-1" role="doc-noteref" aria-label="Footnote 1">1</a></sup> We consistently find MLPs to perform worse than polynomial and kernel regression at both prediction tasks.</p>
+
+    <figure class="box" id="explorer">
+      <div class="tabs" role="tablist" aria-label="Phase transitions"></div>
+      <div class="pair ex-pair">
+        <img class="sys-grid" id="sys-grid" src="figs/targets/grid_heisenberg.webp" alt="Ground truth, the four fitted landscapes, and the derived quantity" width="1500" height="879">
+        <svg id="sys-bars" class="plot" viewBox="0 0 260 330" role="img" aria-label="Relative error on Q and critical-point error for each model"></svg>
+      </div>
+      <div class="legend" id="ex-legend">
+        <span><b class="sw" style="border-color:#000"></b>Ground truth</span>
+        <span><b class="sw" style="border-color:var(--poly)"></b>Polynomial</span>
+        <span><b class="sw" style="border-color:var(--rff)"></b>RFF</span>
+        <span><b class="sw" style="border-color:var(--gp)"></b>GP</span>
+        <span><b class="sw" style="border-color:var(--mlp)"></b>MLP</span>
+        <span><b class="sw area" style="background:var(--P)"></b>train <i>P</i></span>
+        <span><b class="sw area" style="background:var(--Q)"></b>extrap <i>Q</i></span>
+      </div>
+      <figcaption>Left: the ground truth, the four fitted landscapes, and the derived quantity. Right: the relative error on <i>Q</i> and the error in the recovered critical point, from Table 1 of the paper.
+        <span class="ex-note" id="sys-note"></span>
+      </figcaption>
+    </figure>
+
+    <div class="phen">
+      <h3>Fixed-feature Regression Empirically Extrapolates</h3>
+      <p>Polynomial, RFF, and GP regression recover the physical structure across the transition on all five datasets. The neural-network methods do not recover the unobserved phase structure.<sup class="note-ref"><a href="#note-2" id="note-ref-2" role="doc-noteref" aria-label="Footnote 2">2</a></sup></p>
+    </div>
+
+  </section>
+
+  <section id="bound">
+    <h2 class="num">How can we bound the error?</h2>
+    <p>The comparisons above use ground truth in the unobserved phase to evaluate predictions. Physics often requires predictions in regimes that are experimentally inaccessible or theoretically unresolved, where such comparisons are unavailable. We therefore seek to bound extrapolation error using the error measured within the observed phase, before collecting any target-phase observations.</p>
+    <p>We measure extrapolation with the empirical transfer coefficient &Gamma;<sub>emp</sub>, the ratio of mean squared error (MSE) on <i>Q</i> to validation MSE on <i>P</i>. For polynomial and RFF models, we bound this ratio when the prediction error lies in the span of the chosen polynomial or cosine features.</p>
+    <p class="display">MSE<sub><i>Q</i></sub> &le; &Gamma;<sub>GEVP</sub> &middot; MSE<sub><i>P</i></sub>.</p>
+    <p>To compute the bound, we form two matrices that describe the features on the training and target regions. For a feature vector &phi;, these are the second-moment matrices</p>
+    <p class="display"><i>B</i> = E<sub><i>P</i></sub>[&phi;&phi;<sup>&#8868;</sup>], &nbsp; <i>A</i> = E<sub><i>Q</i></sub>[&phi;&phi;<sup>&#8868;</sup>].</p>
+    <div class="theorem">
+      <h3>Proposition 3.3. Finite-feature GEVP bound</h3>
+      <p>Let <i>F</i><sub>&phi;</sub> be the span of a fixed feature map &phi;. For probability distributions <i>P</i> and <i>Q</i>, suppose the matrices <i>A</i> and <i>B</i> above are finite and <i>B</i> is positive definite on the feature span. Then</p>
+      <p class="display"><span class="math-line"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>Γ</mi><mo stretchy="false">(</mo><msub><mi>F</mi><mi>φ</mi></msub><mo>;</mo><mi>P</mi><mo>,</mo><mi>Q</mi><mo stretchy="false">)</mo><mo>=</mo><munder><mo movablelimits="false">sup</mo><mrow><mn>0</mn><mo>≠</mo><mi>r</mi><mo>∈</mo><msub><mi>F</mi><mi>φ</mi></msub></mrow></munder><mfrac><mrow><msub><mi mathvariant="normal">E</mi><mi>Q</mi></msub><mo>[</mo><msup><mi>r</mi><mn>2</mn></msup><mo>]</mo></mrow><mrow><msub><mi mathvariant="normal">E</mi><mi>P</mi></msub><mo>[</mo><msup><mi>r</mi><mn>2</mn></msup><mo>]</mo></mrow></mfrac><mo>=</mo><msub><mi>λ</mi><mtext>max</mtext></msub><mo stretchy="false">(</mo><mi>A</mi><mo>,</mo><mi>B</mi><mo stretchy="false">)</mo><mo>.</mo></mrow></math></span></p>
+      <p>If the prediction error lies in <i>F</i><sub>&phi;</sub>, this coefficient bounds its MSE on <i>Q</i> relative to its MSE on <i>P</i>.<sup class="note-ref"><a href="#note-3" id="note-ref-3" role="doc-noteref" aria-label="Footnote 3">3</a></sup></p>
+    </div>
+    <p>The generalized eigenvalue problem finds the combination of features that stays smallest on <i>P</i> relative to its size on <i>Q</i>. We estimate the feature matrices using 10,000 unlabeled Monte Carlo samples from each region, with no target labels.<sup class="note-ref"><a href="#note-4" id="note-ref-4" role="doc-noteref" aria-label="Footnote 4">4</a></sup> The guarantee applies to finite polynomial and RFF feature spaces. For GPs, we use the RFF bound as an empirical proxy rather than a guarantee for the GP itself.<sup class="note-ref"><a href="#note-5" id="note-ref-5" role="doc-noteref" aria-label="Footnote 5">5</a></sup></p>
+    <p>We compare the GEVP bound with the empirical transfer coefficient across training-set sizes. For polynomials, we also compare with geometry-based <a href="#ref-kalavasis">Volume</a> and Remez bounds, which use ratios between the volume of a region enclosing both <i>P</i> and <i>Q</i> and the volumes of the individual regions.</p>
+
+
+    <figure class="box" id="bvn">
+      <div class="tabs" role="tablist" aria-label="Phase transitions"></div>
+      <div class="pair two-pair">
+        <svg id="bvn-poly" class="plot" viewBox="0 0 400 320" role="img" aria-label="Transfer coefficient and bounds against training-set size for the polynomial model"></svg>
+        <svg id="bvn-rff" class="plot" viewBox="0 0 400 320" role="img" aria-label="Transfer coefficient and GEVP bound against training-set size for the RFF model"></svg>
+      </div>
+      <div class="legend">
+        <span><b class="sw" style="border-color:#1f77b4"></b><span>&Gamma;<sub>emp</sub></span></span>
+        <span><b class="sw" style="border-color:#2ca02c"></b><span>&Gamma;<sub>GEVP</sub></span></span>
+        <span><b class="sw" style="border-color:#e377c2"></b>Volume bound</span>
+        <span><b class="sw" style="border-color:#8c564b"></b>Remez bound</span>
+      </div>
+      <figcaption>Empirical transfer coefficient &Gamma;<sub>emp</sub> and the GEVP bound as training-set size increases, for polynomial regression (left) and RFFs (right). The Volume and Remez bounds apply only to polynomials. The GEVP bound stays fixed because the features and input regions are held constant.</figcaption>
+    </figure>
+
+    <div class="phen">
+      <h3>GEVP Tightly Bounds the Extrapolation Error</h3>
+      <p>The GEVP bound upper bounds the observed transfer coefficient across training-set sizes, while the geometry-based bounds sit many orders of magnitude above it. We test polynomial and kernel regression on all five datasets and compute the bound without target labels.</p>
+    </div>
+  </section>
+
+  <section id="powerlaw">
+    <h2 class="num">How does extrapolation scale with distance?</h2>
+    <p>Observations near a transition may be difficult to obtain because of experimental constraints or the computational cost of resolving critical behavior. How does extrapolation change when we move the training data farther away? We increase the distance between the training region and the critical point while keeping the training-region width, sample count, and target region fixed.</p>
+    <figure class="box" id="dist">
+      <div class="tabs" role="tablist" aria-label="Phase transitions"></div>
+      <div class="pair two-pair">
+        <svg id="dist-poly" class="plot" viewBox="0 0 400 320" role="img" aria-label="Transfer coefficient and GEVP bound against distance for the polynomial model, with power-law fits"></svg>
+        <svg id="dist-rff" class="plot" viewBox="0 0 400 320" role="img" aria-label="Transfer coefficient and GEVP bound against distance for the RFF model, with power-law fits"></svg>
+      </div>
+      <div class="legend">
+        <span><b class="sw" style="border-color:#1f77b4"></b><span>&Gamma;<sub>emp</sub></span></span>
+        <span><b class="sw" style="border-color:#2ca02c"></b><span>&Gamma;<sub>GEVP</sub></span></span>
+      </div>
+      <figcaption>Empirical transfer coefficient &Gamma;<sub>emp</sub> and GEVP bound versus distance <i>D</i> from the training region to the critical point, with 2,000 training samples. Polynomial regression is on the left and RFFs on the right. Lines are power-law fits, with fitted exponent &beta;.</figcaption>
+    </figure>
+    <p>Several targets show power-law growth over the measured distances.</p>
+    <p>For polynomials, the power-law upper bound follows from the Volume bound (<a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Proposition 3.1 of our paper</a>), based on <a href="https://arxiv.org/html/2403.11963v1">Theorem 2.3 of Kalavasis et al. (2024)</a>. The training and target regions keep fixed volumes while the enclosing region grows linearly with distance, so both relative-volume ratios &rho;<sub><i>P</i></sub> and &rho;<sub><i>Q</i></sub> grow linearly as well. For degree-<i>d</i> polynomials, the bound contains the factor &rho;<sub><i>Q</i></sub>&rho;<sub><i>P</i></sub><sup>2<i>d</i></sup>, giving a power-law upper bound of degree 2<i>d</i> + 1 in distance.</p>
+    <p>For RFFs, Theorem 4.1 uses the Tur&aacute;n&ndash;Nazarov inequality [<a href="#ref-nazarov">Nazarov 1993</a>] to control how large a sum of oscillations can become outside the training region.</p>
+
+    <div class="theorem">
+      <h3>Theorem 4.1. RFF transfer coefficient bounds</h3>
+      <p>Let <i>P</i> and <i>Q</i> be disjoint bounded intervals of positive length with uniform distributions, and let <i>I</i> be the smallest interval containing both. Let &#x1D4A2;<sub><i>m</i></sub> be the span of <i>m</i> cosine features with <i>k</i> &le; 2<i>m</i> distinct signed frequencies &lambda;<sub>1</sub>, &hellip;, &lambda;<sub><i>k</i></sub>. For an absolute constant <i>C</i> &gt; 1,</p>
+      <p class="display"><span class="math-line"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>Γ</mi><mo stretchy="false">(</mo><msub><mi>𝒢</mi><mi>m</mi></msub><mo>;</mo><mi>P</mi><mo>,</mo><mi>Q</mi><mo stretchy="false">)</mo><mo>≤</mo><mi mathvariant="normal">min</mi><mo>{</mo><mn>2</mn><msup><mrow><mo>(</mo><mn>2</mn><msup><mi>C</mi><mn>2</mn></msup><mo>)</mo></mrow><mrow><mn>2</mn><mo>(</mo><mi>k</mi><mo>−</mo><mn>1</mn><mo>)</mo></mrow></msup><msup><mrow><mo>(</mo><mfrac><mrow><mo>|</mo><mi>I</mi><mo>|</mo></mrow><mrow><mo>|</mo><mi>P</mi><mo>|</mo></mrow></mfrac><mo>)</mo></mrow><mrow><mn>2</mn><mo>(</mo><mi>k</mi><mo>−</mo><mn>1</mn><mo>)</mo></mrow></msup><mo>,</mo><mfrac><mi>k</mi><msub><mi>μ</mi><mi>P</mi></msub></mfrac><mo>}</mo><mo>.</mo></mrow></math></span></p>
+      <p>Here &mu;<sub><i>P</i></sub> &gt; 0 is the smallest eigenvalue of E<sub><i>P</i></sub>[&psi;&psi;<sup>*</sup>], where &psi;(<i>t</i>) = (e<sup>i&lambda;<sub>1</sub><i>t</i></sup>, &hellip;, e<sup>i&lambda;<sub><i>k</i></sub><i>t</i></sup>)<sup>&#8868;</sup>. It is unchanged by translations of <i>P</i>.<sup class="note-ref"><a href="#note-6" id="note-ref-6" role="doc-noteref" aria-label="Footnote 6">6</a></sup></p>
+    </div>
+
+    <p>For fixed frequencies and training width, the second bound gives a distance-independent upper bound, although its value depends on the frequency configuration and may be very large. The transfer coefficient therefore remains bounded as the separation increases, so positive power-law growth cannot persist indefinitely. This is consistent with the empirical RFF coefficient leveling off beyond <i>D</i> &asymp; 0.4 for Polaron and showing little overall growth across the measured range for Rayleigh&ndash;B&eacute;nard.</p>
+    <div class="phen">
+      <h3>Scaling Law of Extrapolation</h3>
+      <p>Across the measured extrapolation distances, we observe power-law growth in the empirical transfer coefficient and GEVP bound on several targets. We prove power-law upper bounds for polynomial and RFF classes and, for fixed RFF frequencies and training width, a distance-independent upper bound, matching our empirical observations. These bounds suggest that extrapolation becomes harder in a structured way rather than catastrophically.</p>
+    </div>
+  </section>
+
+  <section id="conclusions">
+    <h2 class="num">Conclusions</h2>
+    <p>To conclude, our paper answers the following questions.</p>
+    <ol class="conclusions question-list" role="list">
+      <li><strong>Can a model trained on one phase predict an unobserved&nbsp;one?</strong><p>Yes. Our benchmarks show that a model can recover behavior absent from the observed phase and identify where the transition occurs.</p></li>
+      <li><strong>If so, which classes of models extrapolate&nbsp;successfully?</strong><p>Polynomial, RFF, and GP regression recover the phase structure across our five datasets. The neural-network methods we test generally miss that structure despite fitting the observed phase.</p></li>
+      <li><strong>Can we upper-bound the extrapolation&nbsp;error?</strong><p>For finite polynomial and RFF feature spaces, the GEVP bound converts error within the training region into an upper bound on extrapolation error without target labels.</p></li>
+      <li><strong>How does extrapolation scale with distance?</strong><p>Several measured trends follow approximate power laws, and theory gives power-law upper bounds on the transfer coefficient. For fixed RFF frequencies and training width, a distance-independent upper bound also limits growth.</p></li>
+    </ol>
+    <p>Together, these results build a principled picture of extrapolation across phase transitions, connecting the prediction of emergent behavior in complex systems with quantitative limits on error growth. This is a concrete step toward a principled extrapolation protocol that physicists can use when the phase of interest is experimentally inaccessible or theoretically unresolved.</p>
+  </section>
+
+  <section class="footnotes" id="notes" role="doc-endnotes" aria-labelledby="notes-title">
+    <h2 id="notes-title">Notes</h2>
+    <ol>
+      <li id="note-1"><a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix F</a> describes dataset preparation and tests how preprocessing affects the ARPES results. <a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix H</a> gives the training procedures and hyperparameters for each method. <a class="note-back" href="#note-ref-1" aria-label="Back to reference 1">&crarr;</a></li>
+      <li id="note-2"><a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix G</a> tests whether sinusoidal representations and physical constraints improve extrapolation in additional neural-network architectures. <a class="note-back" href="#note-ref-2" aria-label="Back to reference 2">&crarr;</a></li>
+      <li id="note-3"><a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix B</a> gives the GEVP and Remez derivations and traces the Volume bound to <a href="https://arxiv.org/html/2403.11963v1">Theorem 2.3 of Kalavasis et al. (2024)</a>. <a class="note-back" href="#note-ref-3" aria-label="Back to reference 3">&crarr;</a></li>
+      <li id="note-4"><a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix B</a> analyzes the sampling error using matrix-Chernoff bounds and checks convergence at our working budget of 10,000 unlabeled samples from each region. <a class="note-back" href="#note-ref-4" aria-label="Back to reference 4">&crarr;</a></li>
+      <li id="note-5"><a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix D</a> compares the RFF and GP transfer coefficients as the number of random features grows. <a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix E</a> examines GP posterior variance and alternative ways to assess extrapolation error. <a class="note-back" href="#note-ref-5" aria-label="Back to reference 5">&crarr;</a></li>
+      <li id="note-6"><a href="https://openreview.net/pdf?id=gYbqOvL2Ld">Appendix C</a> proves the power-law and fixed-frequency bounds for RFFs and extends the interval argument to the two-dimensional domains used in our experiments. <a class="note-back" href="#note-ref-6" aria-label="Back to reference 6">&crarr;</a></li>
+    </ol>
+  </section>
+
+  <section id="citation">
+    <h2>Citation</h2>
+    <div class="cite">
+      <button class="plain-btn" id="copy-bib" type="button">Copy</button>
+<pre id="bibtex">@inproceedings{wei2026extrapolation,
+  title     = {Extrapolation across Phase Transitions with Polynomial and Kernel Regression: Error Bounds and Power-Law Scaling},
+  author    = {Wei, Jeffrey and Zampetakis, Manolis and Sous, John},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2026},
+}</pre>
+    </div>
+  </section>
+
+  <section id="references">
+    <h2>References</h2>
+    <ul class="refs">
+      <li id="ref-chen">X. Chen, Y. Sun, E. Hruska, V. Dixit, J. Yang, Y. He, Y. Wang, and F. Liu. Detecting thermodynamic phase transition via explainable machine learning of photoemission spectroscopy. <i>Newton</i> 1, 100066 (2025). <a href="https://doi.org/10.1016/j.newton.2025.100066">doi</a></li>
+      <li id="ref-he">Y. He, S.-D. Chen, Z.-X. Li, et al. Superconducting fluctuations in overdoped Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8+&delta;</sub>. <i>Physical Review X</i> 11, 031068 (2021). <a href="https://doi.org/10.1103/PhysRevX.11.031068">doi</a></li>
+      <li id="ref-kalavasis">A. Kalavasis, I. Zadik, and M. Zampetakis. Transfer learning beyond bounded density ratios. Preprint (2024). <a href="https://arxiv.org/abs/2403.11963">arXiv</a></li>
+      <li id="ref-nazarov">F. L. Nazarov. Local estimates for exponential polynomials and their applications to inequalities of the uncertainty principle type. <i>Algebra i Analiz</i> 5(4), 3&ndash;66 (1993).</li>
+      <li id="ref-vargas">R. A. Vargas-Hern&aacute;ndez, J. Sous, M. Berciu, and R. V. Krems. Extrapolating quantum observables with machine learning: inferring multiple phase transitions from properties of a single phase. <i>Physical Review Letters</i> 121, 255702 (2018). <a href="https://doi.org/10.1103/PhysRevLett.121.255702">doi</a></li>
+    </ul>
+  </section>
+</main>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged figure"><img alt=""></div>
+</body>
+</html>
